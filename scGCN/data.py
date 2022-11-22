@@ -17,7 +17,7 @@ def input_data(DataDir,Rgraph=True):
     DataPath1 = '{}/Data1.csv'.format(DataDir)
     DataPath2 = '{}/Data2.csv'.format(DataDir)
     LabelsPath1 = '{}/Label1.csv'.format(DataDir)
-    LabelsPath2 = '{}/Label2.csv'.format(DataDir)
+    LabelsPath2 = '{}/Label2.csv'.format(DataDir)      
 
     #' read the data
     data1 = pd.read_csv(DataPath1, index_col=0, sep=',')
@@ -40,7 +40,7 @@ def input_data(DataDir,Rgraph=True):
         tem_label = lab_label1[lab_label1['type'] == i]
         tem_data = lab_data1.iloc[tem_index]
         num_to_select = len(tem_data)
-        random_items = random.sample(range(0, len(tem_index)), num_to_select)
+        random_items = random.sample(range(0, len(tem_index)), num_to_select)  # 随机shuffle一下为啥这样写
         # print(random_items)
         sub_data = tem_data.iloc[random_items]
         sub_label = tem_label.iloc[random_items]
@@ -57,21 +57,38 @@ def input_data(DataDir,Rgraph=True):
     label_test = []
     label_val = []
 
+    # 按类型均分
     for i in range(0, len(p_data)):
-        temD_train, temd_test, temL_train, teml_test = train_test_split(
-            p_data[i], p_label[i], test_size=0.1, random_state=1)
-        temd_train, temd_val, teml_train, teml_val = train_test_split(
-            temD_train, temL_train, test_size=0.1, random_state=1)
-        print((temd_train.index == teml_train.index).all())
-        print((temd_test.index == teml_test.index).all())
-        print((temd_val.index == teml_val.index).all())
+        test_size = 0.1 
+        n_train_size =  p_data[i].shape[0] * (1 - test_size)
+        n_test_size  = p_data[i].shape[0] * test_size
+
+        if n_test_size < 1:  # if no test samples left, just ignore these test category
+            temD_train, temd_test, temL_train, teml_test = p_data[i].copy(), None, p_label[i].copy(), None
+        else:
+            temD_train, temd_test, temL_train, teml_test = train_test_split(   # train_val, test
+                p_data[i], p_label[i], test_size=test_size, random_state=1)
+
+        n_train_size =  temD_train.shape[0] * (1 - test_size)
+        n_test_size  = temD_train.shape[0] * test_size
+
+        if n_test_size < 1:
+            temd_train, temd_val, teml_train, teml_val = temD_train.copy(), None, temL_train.copy(), None
+        else:
+            temd_train, temd_val, teml_train, teml_val = train_test_split(     # train, valid
+                temD_train, temL_train, test_size=test_size, random_state=1) 
+
         data_train.append(temd_train)
         label_train.append(teml_train)
-        data_test.append(temd_test)
-        label_test.append(teml_test)
-        data_val.append(temd_val)
-        label_val.append(teml_val)
 
+        if temd_test is not None:
+            data_test.append(temd_test)
+            label_test.append(teml_test)
+        if temd_val is not None:
+            data_val.append(temd_val)
+            label_val.append(teml_val)
+
+    # 咋还用的df做数据结构啊，稀疏都不存？
     data_train1 = pd.concat(data_train)
     data_test1 = pd.concat(data_test)
     data_val1 = pd.concat(data_val)
@@ -79,8 +96,8 @@ def input_data(DataDir,Rgraph=True):
     label_test1 = pd.concat(label_test)
     label_val1 = pd.concat(label_val)
 
-    train2 = pd.concat([data_train1, lab_data2])
-    lab_train2 = pd.concat([label_train1, lab_label2])
+    train2 = pd.concat([data_train1, lab_data2])   # splited data + query data
+    lab_train2 = pd.concat([label_train1, lab_label2])  # split label + query label
 
     #' save objects
 
